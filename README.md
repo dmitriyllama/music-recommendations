@@ -1,1 +1,1 @@
-# music-recommendations
+# Spot-Out: Music recommendations
