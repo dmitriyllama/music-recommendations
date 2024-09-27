@@ -7,15 +7,15 @@ import joblib
 from sklearn.model_selection import train_test_split
 from typing import List
 import time
-api = FastAPI()
+app = FastAPI()
 
-
-# Load model and data
-
-
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
 # Read the cleaned DataFrame from the /app/datasets directory
-df_cleaned = pd.read_csv("/app/code/datasets/spotify_cleaned.csv")
+
 scaler = joblib.load("/app/models/model.pkl")
+df_cleaned = pd.read_csv("datasets/spotify_cleaned.csv")
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 
     'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
@@ -59,7 +59,7 @@ def recommend_songs(similarity_matrix, train_data, num_recommendations=5):
     return recommendations
 
 # FastAPI endpoint to receive user preferences and return recommendations
-@api.post("/recommend")
+@app.post("/recommend")
 def get_recommendations(preferences: List[UserPreferences]):
     # Convert preferences to a dataframe
     user_data = pd.DataFrame([pref.dict() for pref in preferences])
