@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import streamlit as st
 import pandas as pd
 import os
 from sklearn.metrics.pairwise import cosine_similarity
@@ -9,13 +10,10 @@ from typing import List
 import time
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-# Read the cleaned DataFrame from the /app/datasets directory
 
-scaler = joblib.load("/app/models/model.pkl")
-df_cleaned = pd.read_csv("datasets/spotify_cleaned.csv")
+df_cleaned = pd.read_csv(os.path.join(os.getcwd(), "code/datasets/spotify_cleaned.csv"))
+scaler = joblib.load(os.path.join(os.path.dirname(__file__), "../models/model.pkl"))
+
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 
     'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
@@ -26,6 +24,7 @@ df_cleaned = df_cleaned.dropna(subset=features)
 train_data, test_data = train_test_split(df_cleaned, test_size=0.00001, random_state=42)
 
 # Use the loaded scaler to transform the training data
+scaler.fit(train_data[features])
 X_train = scaler.transform(train_data[features])
 
 
@@ -63,7 +62,6 @@ def recommend_songs(similarity_matrix, train_data, num_recommendations=5):
 def get_recommendations(preferences: List[UserPreferences]):
     # Convert preferences to a dataframe
     user_data = pd.DataFrame([pref.dict() for pref in preferences])
-    
     # Scale the user data
     user_X = scaler.transform(user_data[features])
     
