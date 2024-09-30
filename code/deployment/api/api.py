@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import streamlit as st
 import pandas as pd
 import os
 from sklearn.metrics.pairwise import cosine_similarity
@@ -10,9 +9,10 @@ from typing import List
 import time
 app = FastAPI()
 
-
-df_cleaned = pd.read_csv(os.path.join(os.getcwd(), "code/datasets/spotify_cleaned.csv"))
-scaler = joblib.load(os.path.join(os.path.dirname(__file__), "../models/model.pkl"))
+path_components = os.path.abspath(__file__).split(os.sep)
+home_path = os.sep.join(path_components[:path_components.index('spot-out') + 1])
+df_cleaned = pd.read_csv(os.path.join(home_path, "data", "spotify_cleaned.csv"))
+scaler = joblib.load(os.path.join(home_path, "models", "model.pkl"))
 
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 

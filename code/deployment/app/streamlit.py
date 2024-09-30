@@ -8,7 +8,7 @@ st.write("Upload a CSV file containing your song preferences or input your prefe
 
 # Function to send user preferences to FastAPI and get recommendations
 def fetch_recommendations(preferences):
-    api_url = "http://fastapi:8000/recommend"   
+    api_url = "http://fastapi:80/predict"   
     response = requests.post(api_url, json=preferences)
     
     if response.status_code == 200:

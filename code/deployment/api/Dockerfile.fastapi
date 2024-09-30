@@ -4,17 +4,16 @@ FROM python:3.9
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy everything from the spot-out directory to /app
-COPY ../../ /app
-
-# Optional: Print contents for verification
+# Copy everything from the PML Assignment 1 directory to /app
+COPY . /app
+# # Optional: Print contents for verification
 RUN echo "Contents of /app:" && ls -la /app
 
-# Install required packages
+# Install any necessary packages
 RUN pip install fastapi uvicorn scikit-learn==1.4.1.post1 pandas joblib seaborn matplotlib
 
 # Expose port 80 to the outside world
 EXPOSE 80
-
+# CMD ["/bin/sh", "-c", "sleep 1000"]
 # Run the FastAPI server with Uvicorn
-CMD ["uvicorn", "api.api:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "code.deployment.api.api:app", "--host", "0.0.0.0", "--port", "80"]
