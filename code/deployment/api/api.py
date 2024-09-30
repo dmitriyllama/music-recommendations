@@ -6,13 +6,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 import joblib
 from sklearn.model_selection import train_test_split
 from typing import List
-import time
+
 app = FastAPI()
 
-path_components = os.path.abspath(__file__).split(os.sep)
-home_path = os.sep.join(path_components[:path_components.index('spot-out') + 1])
-df_cleaned = pd.read_csv(os.path.join(home_path, "data", "spotify_cleaned.csv"))
-scaler = joblib.load(os.path.join(home_path, "models", "model.pkl"))
+df_cleaned = pd.read_csv(os.path.join(os.getcwd(), "data", "spotify_cleaned.csv"))
+scaler = joblib.load(os.path.join(os.getcwd(), "models", "model.pkl"))
 
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 
