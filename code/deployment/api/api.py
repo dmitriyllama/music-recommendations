@@ -1,30 +1,23 @@
+# api.py
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pandas as pd
 import os
-from sklearn.metrics.pairwise import cosine_similarity
 import joblib
-from sklearn.model_selection import train_test_split
+from scipy.spatial.distance import (euclidean, cityblock, jaccard, 
+                                    correlation, hamming, mahalanobis, 
+                                    chebyshev, minkowski, braycurtis)
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 from typing import List
 
 app = FastAPI()
-
-df_cleaned = pd.read_csv(os.path.join(os.getcwd(), "data", "spotify_cleaned.csv"))
-scaler = joblib.load(os.path.join(os.getcwd(), "models", "model.pkl"))
-
+actual_model_type = "kmeans_model"
+actual_metric = "cosine"
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 
     'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
 ]
-
-# Drop rows with missing values
-df_cleaned = df_cleaned.dropna(subset=features)
-train_data, test_data = train_test_split(df_cleaned, test_size=0.00001, random_state=42)
-
-# Use the loaded scaler to transform the training data
-scaler.fit(train_data[features])
-X_train = scaler.transform(train_data[features])
-
 
 # Define Pydantic model for user preferences
 class UserPreferences(BaseModel):
@@ -39,35 +32,68 @@ class UserPreferences(BaseModel):
     valence: float
     tempo: float
 
+# Load model based on model type
+def load_model(model_type: str):
+    model_dir = os.path.join(os.getcwd(), "models")
+    model_path = os.path.join(model_dir, f"{model_type}.pkl")
+    scaler_path = os.path.join(model_dir, "StandardScaler.pkl")
+    training_data_path = os.path.join(os.getcwd(), "data", f"{model_type}_data.csv")
+
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        raise HTTPException(status_code=404, detail="Model or scaler not found.")
+    
+    kmeans = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+    training_data = pd.read_csv(training_data_path)
+    return kmeans, scaler, training_data
+
+# Similarity functions and recommendations
+def calculate_similarity(user_song, cluster_songs, metric):
+    user_song = user_song.reshape(1, -1)  # Ensure 2D array shape
+    if metric == "cosine":
+        return cosine_similarity(user_song, cluster_songs)
+    elif metric == "euclidean":
+        return np.array([euclidean(user_song[0], song) for song in cluster_songs])
+    elif metric == "manhattan":
+        return np.array([cityblock(user_song[0], song) for song in cluster_songs])
+    elif metric == "jaccard":
+        return np.array([jaccard(user_song[0], song) for song in cluster_songs])
+    elif metric == "pearson":
+        return np.array([1 - correlation(user_song[0], song) for song in cluster_songs])  # Convert to similarity
+    elif metric == "hamming":
+        return np.array([hamming(user_song[0], song) for song in cluster_songs])
+    elif metric == "mahalanobis":
+        VI = np.linalg.inv(np.cov(cluster_songs.T))
+        return np.array([mahalanobis(user_song[0], song, VI) for song in cluster_songs])
+    elif metric == "chebyshev":
+        return np.array([chebyshev(user_song[0], song) for song in cluster_songs])
+    elif metric == "minkowski":
+        return np.array([minkowski(user_song[0], song) for song in cluster_songs])
+    elif metric == "braycurtis":
+        return np.array([braycurtis(user_song[0], song) for song in cluster_songs])
+    else:
+        raise ValueError("Unknown metric")
+    
 # Define helper function for recommendations
-def recommend_songs(similarity_matrix, train_data, num_recommendations=5):
-    recommendations = []
-    for i in range(similarity_matrix.shape[0]):
-        # Get similarity scores for the i-th user's uploaded song
-        sim_scores = list(enumerate(similarity_matrix[i]))
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-
-        # Get the top num_recommendations recommendations (ignoring the song itself)
-        recommended_songs_indices = [sim_scores[j][0] for j in range(1, num_recommendations+1)]
-        recommended_songs = train_data.iloc[recommended_songs_indices]
-
-        recommendations.append(recommended_songs[['track_name', 'artists']])
-
-    return recommendations
+def recommend_songs(user_song, train_data, metric, num_recommendations=5):
+    similarity_scores = calculate_similarity(user_song, train_data[features].values, metric)
+    
+    # Sort indices of similarity scores in descending order
+    recommended_indices = similarity_scores.argsort()[0][-num_recommendations:][::-1]
+    return train_data.iloc[recommended_indices][['track_name', 'artists']]
 
 # FastAPI endpoint to receive user preferences and return recommendations
 @app.post("/recommend")
-def get_recommendations(preferences: List[UserPreferences]):
-    # Convert preferences to a dataframe
+def get_recommendations(preferences: List[UserPreferences], model_type: str = actual_model_type, metric: str = actual_metric, num_recommendations: int = 5):
     user_data = pd.DataFrame([pref.dict() for pref in preferences])
+
+    # Load the KMeans model and scaler
+    kmeans, scaler, training_data = load_model(model_type)
+
     # Scale the user data
     user_X = scaler.transform(user_data[features])
-    
-    # Calculate cosine similarity between user data and training data
-    similarity_matrix = cosine_similarity(user_X, X_train)
-    
+
     # Generate recommendations
-    recommendations = recommend_songs(similarity_matrix, train_data, num_recommendations=5)
-    
-    # Return recommendations
-    return {"recommendations": recommendations}
+    recommendations = recommend_songs(user_X[0], training_data, metric, num_recommendations)
+
+    return {"recommendations": recommendations.to_dict(orient="records")}
