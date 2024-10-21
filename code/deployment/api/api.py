@@ -13,9 +13,11 @@ from typing import List
 
 app = FastAPI()
 models = ["miniBatchKMeans_model","gmm_model","kmeans_model"]
+scalers = ["MinMaxScaler","StandardScaler"]
+cosine = ["cosine","euclidean","manhattan","jaccard","pearson","hamming", "mahalanobis","mahalanobis", "chebyshev", "minkowski","braycurtis"]
 actual_model_type = models[0]
-actual_scaler = "StandardScaler"
-actual_metric = "cosine"
+actual_scaler = scalers[0]
+actual_metric = cosine[0]
 
 features = [
     'danceability', 'energy', 'key', 'loudness', 'speechiness', 
